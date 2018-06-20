@@ -95,7 +95,7 @@ func New{{.Target.Kind}}Controller(config *rest.Config, si *sharedinformers.Shar
 	if i, ok := ci.(sharedinformers.LegacyControllerInit); ok {
         i.Init(config, si, c.LookupAndReconcile)
     } else if i, ok := ci.(sharedinformers.ControllerInit); ok {
-        i.Init(&sharedinformers.ControllerInitArgumentsImpl{si, config, c.LookupAndReconcile})
+        i.Init(&sharedinformers.ControllerInitArgumentsImpl{si, config, c.LookupAndReconcile, q})
     }
 
 	c.controller = uc
@@ -249,6 +249,7 @@ func (d *informersGenerator) Imports(c *generator.Context) []string {
 		repo + "/pkg/client/clientset_generated/clientset",
 		repo + "/pkg/client/informers_generated/externalversions",
 		"k8s.io/client-go/tools/cache",
+		"k8s.io/client-go/util/workqueue",
 	}
 }
 
@@ -310,13 +311,17 @@ type ControllerInitArguments interface {
     // getReconcileKey: takes an instance of the watched resource and returns
     //                                      a key for the reconciled resource type to enqueue.
 	Watch(watchName string, resourceInformer cache.SharedIndexInformer,
-            getReconcileKey func(interface{}) (string, error))
+			getReconcileKey func(interface{}) (string, error))
+			
+	WatchAssociated(resourceInformer cache.SharedIndexInformer,
+			getReconcileKey func(interface{}) (string, error))
 }
 
 type ControllerInitArgumentsImpl struct {
     Si *SharedInformers
     Rc *rest.Config
-    Rk func(key string) error
+	Rk func(key string) error
+	ControllerQueue workqueue.RateLimitingInterface
 }
 
 func (c ControllerInitArgumentsImpl) GetSharedInformers() *SharedInformers {
@@ -339,6 +344,13 @@ func (c ControllerInitArgumentsImpl) Watch(
     watchName string, resourceInformer cache.SharedIndexInformer,
     getReconcileKey func(interface{}) (string, error)) {
     c.Si.Watch(watchName, resourceInformer, getReconcileKey, c.Rk)
+}
+
+// TODO: document and deprecate other Watch function for associated watches
+func (c ControllerInitArgumentsImpl) WatchAssociated(
+	resourceInformer cache.SharedIndexInformer,
+    getReconcileKey func(interface{}) (string, error)) {
+	c.Si.WatchAssociated(resourceInformer, getReconcileKey, c.ControllerQueue)
 }
 
 type Controller interface {}

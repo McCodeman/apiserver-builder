@@ -77,6 +77,13 @@ func (c *SharedInformersDefaults) Watch(
 	i.AddEventHandler(&QueueingEventHandler{q, f, true})
 }
 
+func (c *SharedInformersDefaults) WatchAssociated(
+	i cache.SharedIndexInformer,
+	f func(interface{}) (string, error),
+	q workqueue.RateLimitingInterface) {
+	i.AddEventHandler(&QueueingEventHandler{q, f, true})
+}
+
 func NewConfig(kubeconfig string) (*rest.Config, error) {
 	if len(kubeconfig) != 0 {
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)
